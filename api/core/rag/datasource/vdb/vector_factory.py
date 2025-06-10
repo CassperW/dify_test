@@ -164,6 +164,10 @@ class Vector:
                 from core.rag.datasource.vdb.huawei.huawei_cloud_vector import HuaweiCloudVectorFactory
 
                 return HuaweiCloudVectorFactory
+            case VectorType.ALAYALITE:
+                from core.rag.datasource.vdb.alayalite.alayalite_vector import AlayaliteVectorFactory
+
+                return AlayaliteVectorFactory
             case _:
                 raise ValueError(f"Vector store {vector_type} is not supported.")
 

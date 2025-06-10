@@ -29,3 +29,5 @@ class VectorType(StrEnum):
     OPENGAUSS = "opengauss"
     TABLESTORE = "tablestore"
     HUAWEI_CLOUD = "huawei_cloud"
+
+    ALAYALITE = "alayalite"
