@@ -664,6 +664,7 @@ class DatasetRetrievalSettingApi(Resource):
                 | VectorType.BAIDU
                 | VectorType.VIKINGDB
                 | VectorType.UPSTASH
+                | VectorType.ALAYALITE
             ):
                 return {"retrieval_method": [RetrievalMethod.SEMANTIC_SEARCH.value]}
             case (
@@ -713,6 +714,7 @@ class DatasetRetrievalSettingMockApi(Resource):
                 | VectorType.BAIDU
                 | VectorType.VIKINGDB
                 | VectorType.UPSTASH
+                | VectorType.ALAYALITE
             ):
                 return {"retrieval_method": [RetrievalMethod.SEMANTIC_SEARCH.value]}
             case (
