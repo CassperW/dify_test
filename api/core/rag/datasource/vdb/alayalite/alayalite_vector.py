@@ -1,6 +1,9 @@
-from pydantic import BaseModel
-from alayalite import Client
 import json
+
+from alayalite import Client
+from pydantic import BaseModel
+import numpy as np
+
 
 class AlayaliteConfig(BaseModel):
     url: str
@@ -31,50 +34,73 @@ class AlayaliteVector(BaseVector):
 
     def create(self, texts: list[Document], embeddings: list[list[float]], **kwargs):
         if texts:
-            self.create_collection(self._collection_name)
+            collection = self.client.get_or_create_collection(name=self._collection_name)
+            ids = self._get_uuids(texts)
+            contexts = [d.page_content for d in texts]
+            metadatas = [d.metadata for d in texts]
+
+            items = [
+                (id, text, np.array(vector, dtype=np.float32), metadata)
+                for id, text, vector, metadata in zip(ids, contexts, embeddings, metadatas)
+            ]
+            collection.upsert(items)
+            self.client.save_collection(collection_name=self._collection_name)
             self.add_texts(texts, embeddings, **kwargs)
 
-    def create_collection(self, collection_name: str):
-        self.collection = self.client.get_or_create_collection(name=collection_name)
+    # def create_collection(self, collection_name: str):
+    #     collection = self.client.get_or_create_collection(name=collection_name)
 
     def add_texts(self, documents: list[Document], embeddings: list[list[float]], **kwargs):
         ids = self._get_uuids(documents)
         texts = [d.page_content for d in documents]
         metadatas = [d.metadata for d in documents]
 
-        collection = self.client.get_or_create_collection(self._collection_name)
-
         items = [
-            (id, text, vector, metadata)
+            (id, text, np.array(vector, dtype=np.float32), metadata)
             for id, text, vector, metadata in zip(ids, texts, embeddings, metadatas)
         ]
-        self.collection.upsert(items)
+        collection = self.client.get_or_create_collection(name=self._collection_name)
+        collection.upsert(items)
+        self.client.save_collection(collection_name=self._collection_name)
 
     def text_exists(self, id: str) -> bool:   
-        result = self.collection.get_by_id([id])
+        collection = self.client.get_or_create_collection(name=self._collection_name)
+        result = collection.get_by_id([id])
         return bool(result and len(result) > 0)
 
     def delete_by_ids(self, ids: list[str]) -> None:
         if ids:
-            self.collection.delete_by_id(ids)
+            collection = self.client.get_or_create_collection(name=self._collection_name)
+            collection.delete_by_id(ids)
+            self.client.save_collection(collection_name=self._collection_name)
 
     def delete_by_metadata_field(self, key: str, value: str) -> None:
-
-        all_items = self.collection.get_all()
-        to_delete_ids = [item["id"] for item in all_items if item["metadata"].get(key) == value]
-        if to_delete_ids:
-            self.collection.delete_by_id(to_delete_ids)
+        filter = {key: value}
+        collection = self.client.get_or_create_collection(name=self._collection_name)
+        collection.delete_by_filter(filter)
+        self.client.save_collection(collection_name=self._collection_name)
 
     def search_by_vector(self, query_vector: list[float], **kwargs) -> list[Document]:
         limit = kwargs.get("top_k", 4)
         ef_search = kwargs.get("ef_search", 100)
         num_threads = kwargs.get("num_threads", 1)
-        results = self.collection.batch_query([query_vector], limit, ef_search, num_threads)
+        collection = self.client.get_or_create_collection(name=self._collection_name)
+        results = collection.batch_query([query_vector], limit, ef_search, num_threads)
+
+        ids = results.get("id", [[]])[0]
+        documents = results.get("document", [[]])[0]
+        metadatas = results.get("metadata", [{}])[0]
+        distances = results.get("distance", [[]])[0]
+
         docs = []
-        for result in results:
+        for index in range(len(ids)):
+            distance = distances[index]
+            score = np.exp(-0.1 * distance)
+            metadata=metadatas[index]
+            metadata["score"] = score
             doc = Document(
-                page_content=result["text"],
-                metadata=result.get("metadata", {}),
+                page_content=documents[index],
+                metadata=metadata,
             )
             docs.append(doc)
         return docs
@@ -83,7 +109,7 @@ class AlayaliteVector(BaseVector):
         return []
 
     def delete(self) -> None:
-        self.collection.delete()
+        self.client.delete_collection(self._collection_name, delete_on_disk=True)
 
 
 class AlayaliteVectorFactory(AbstractVectorFactory):
@@ -99,5 +125,5 @@ class AlayaliteVectorFactory(AbstractVectorFactory):
 
         return AlayaliteVector(
             collection_name=collection_name,
-            config=AlayaliteConfig(url=dify_config.URL)
+            config=AlayaliteConfig(url=dify_config.ALAYALITE_URL)
         )

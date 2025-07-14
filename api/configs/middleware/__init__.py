@@ -42,6 +42,7 @@ from .vdb.upstash_config import UpstashConfig
 from .vdb.vastbase_vector_config import VastbaseVectorConfig
 from .vdb.vikingdb_config import VikingDBConfig
 from .vdb.weaviate_config import WeaviateConfig
+from .vdb.alayalite_config import AlayaliteConfig
 
 
 class StorageConfig(BaseSettings):
@@ -303,5 +304,6 @@ class MiddlewareConfig(
     BaiduVectorDBConfig,
     OpenGaussConfig,
     TableStoreConfig,
+    AlayaliteConfig,
 ):
     pass
